@@ -181,7 +181,7 @@ def plot_loss(train_loss: list, test_loss: list):
     plt.legend()
     plt.show()
 
-def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE_MIN: int=10, SHAPE_SIZE_MAX: int=35):
+def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE_MIN: int=10, SHAPE_SIZE_MAX: int=35, geometric: bool = True, rotate: bool = False, origami: bool = False):
     """
     Function to test the model, generate a new image and test the model over that
 
@@ -197,6 +197,14 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
         Minimum size of the image
     SHAPE_SIZE_MAX: int (Optional)
         Maximum size of the image
+    geometric: bool (Optional)
+        If True generate images with geometric shapes, if False it uses real image shapes
+    rotate: bool (Optional)
+        If True generate images with random rotation
+        Affect only the Real images
+    origami: bool (Optional)
+        If True generate images with origami shapes
+        Affect only the Real images
     """
 
     # Define the f1 score functional
@@ -206,8 +214,9 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     mu = th.load(data_dir + "/mu")
     std = th.load(data_dir + "/std")
     
+    num_obj = 4 if not geometric else 5
     # Generate new image
-    test_image_data, relation = create_dataset(1, 128, "./", 5, SHAPE_SIZE_MIN, SHAPE_SIZE_MAX)
+    test_image_data, relation = create_dataset(1, 128, "./", num_obj, SHAPE_SIZE_MIN, SHAPE_SIZE_MAX, geometric=geometric, rotate=rotate, origami=origami)
     
     # Load image
     test_image = plt.imread("0000.jpg")
@@ -220,8 +229,17 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     model.eval()
     with th.no_grad():
         out, out_relation = model(test_image_tensor)
+
+    num_classes = 5 if not geometric else 4
+    if not geometric:
+        if origami:
+            text = ["None", "Dog", "Fish", "Cat", "Crab"]
+        else:
+            text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
+    else:       
+        text = ["None", "Rectangle", "Circle", "Triangle"]
     
-    out[:, :, :4] = th.softmax(out[:, :, :4], dim=2)
+    out[:, :, :num_classes] = th.softmax(out[:, :, :num_classes], dim=2)
     out = out.cpu().numpy()[0]
     
     # Create figure with subplots
@@ -236,24 +254,19 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     
     # Draw centers
     for i, objects in enumerate(out):
-        pred_class = np.argmax(objects[:4])
+        pred_class = np.argmax(objects[:num_classes])
+        position   = objects[num_classes:]
+        
         if pred_class != 0:
-            x = objects[4]  # * IMAGE_SIZE
-            y = objects[5]  # * IMAGE_SIZE
-            w = objects[6]  # * IMAGE_SIZE
-            h = objects[7]  # * IMAGE_SIZE
-    
-            # Add text
-            text = 'Rectangle'
-            if pred_class == 2:
-                text = 'Circle'
-            elif pred_class == 3:
-                text = 'Triangle'
+            x = position[0]  # * IMAGE_SIZE
+            y = position[1]  # * IMAGE_SIZE
+            w = position[2]  # * IMAGE_SIZE
+            h = position[3]  # * IMAGE_SIZE
     
             color = "green" if pred_class == test_image_data[0, i, :4].argmax() else "purple"
             ax.scatter(x, y, color=color, s=10)
             ax.add_patch(patches.Rectangle((x - (w / 2), y - (h / 2)), w, h, facecolor="None", edgecolor=color, linewidth=3))
-            ax.text(x - 10, y - 7, text, color=color, fontsize=12)
+            ax.text(x - 10, y - 7, text[pred_class], color=color, fontsize=12)
     
     axes[0].set_title(f"Relation Accuracy: {f1(th.sigmoid(out_relation) > 0.5, relation.to(device)).item():.2f}")
 

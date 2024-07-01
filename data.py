@@ -15,18 +15,21 @@ import torch as th
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+import matplotlib.image as mpimg
+from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
 from model import GeometricFiguresDataset
 from torch.utils.data import DataLoader
 
 from tqdm import trange
+from PIL import Image
 
 # For reproducibility
 th.manual_seed(3407)
 
 
 
-def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects: int, shape_size_min: int, shape_size_max: int):
+def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects: int, shape_size_min: int, shape_size_max: int, geometric: bool = True, rotate: bool = False, origami: bool = False):
     """
     Function to generate some images with geometric shapes. These will be generated avoiding the overlaps and will generate the relationship matrix.
     The relationships are: "Left", "Right", "Above", "Below", "In Front of", "Behind"
@@ -45,6 +48,14 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
         Minimum size of the shapes
     shape_size_max: int
         Maximum size of the shapes
+    geometric: bool (Optional)
+        If True generate images with geometric shapes, if False it uses real image shapes
+    rotate: bool (Optional)
+        If True generate images with random rotation
+        Affect only the Real images
+    origami: bool (Optional)
+        If True generate images with origami shapes
+        Affect only the Real images
 
     Returns
     -------
@@ -92,7 +103,6 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
         -------
             Returns True if the two shapes overlaps, False otherwise
         """
-        
         for x, y in zip(xs, ys):
             # Check the Euclidean distance between the centers
             if (np.sqrt((x-xs)**2 + (y-ys)**2) < limit).sum() >= 2:
@@ -188,7 +198,7 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
 
         return adj_matrix*relations
 
-    def generate_image():
+    def generate_geometric_image():
         """
         Function which generate a singular image        
         """
@@ -202,7 +212,9 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
         data = th.empty((num_images, max_objects, 8))
         relationships = th.empty((num_images, 6, max_objects, max_objects))
         
-        for i in trange(num_images):         
+        folder_size = 0
+        bar = trange(num_images, desc=f'Creating image dataset, size: {folder_size / 1e6:.2f} MB')
+        for i in bar:         
             # Create figure
             plt.figure(figsize=(image_size / 100, image_size / 100), dpi=100)
             ax = plt.gca()
@@ -285,7 +297,111 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
             plt.margins(0,0)
             plt.savefig(image_path, dpi=100)
             plt.close()
+        
+            folder_size = folder_size + os.path.getsize(image_path)
+            bar.set_description(f'Creating image dataset, size: {folder_size / 1e6:.2f} MB')
+            
+        return data, relationships
 
+    def generate_real_image():
+        if not origami:
+            assets = ["dog.png", "fish2.png", "rath.png", "bucket.png"]
+        else:
+            assets = ["dog2.png", "fish.png", "cat(2).png", "crab.png"]
+        asset_images = [mpimg.imread(os.path.join("assets", asset)) for asset in assets]
+        
+        # Create annotation tensor
+        data = th.empty((num_images, max_objects, 9))
+        relationships = th.empty((num_images, 6, max_objects, max_objects))
+    
+        folder_size = 0
+        bar = trange(num_images, desc=f'Creating image dataset, size: {folder_size / 1e6:.2f} MB')
+    
+        for i in bar:
+            # Create figure
+            plt.figure(figsize=(image_size / 100, image_size / 100), dpi=100)
+            ax = plt.gca()
+            ax.set_xlim(0, image_size)
+            ax.set_ylim(0, image_size)
+            ax.axis('off')
+    
+            # Generate random number of objects
+            num_objects = np.random.randint(1, max_objects + 1)
+    
+            # Generate random centers
+            x_center = np.random.randint(limit // 2, image_size - limit // 2, num_objects)
+            y_center = np.random.randint(limit // 2, image_size - limit // 2, num_objects)
+            # Check if the new shape overlaps with any previous shapes
+            while is_overlapping(x_center, y_center):
+                x_center = np.random.randint(limit // 2, image_size - limit // 2, num_objects)
+                y_center = np.random.randint(limit // 2, image_size - limit // 2, num_objects)
+    
+            # Compute how many objects of each type
+            shape_type = sorted(np.random.choice(len(assets), num_objects, replace=False))
+            
+            # Generate random sizes for each object
+            sizes = np.random.randint(shape_size_min, shape_size_max, num_objects)
+    
+            if rotate:
+                # Generate random rotations for each shape
+                rotations = np.random.randint(-90, 90, num_objects)
+    
+            # Create adjacency matrix
+            relationships[i] = adjacency_matrix(x_center, y_center, np.array([]), sizes, sizes)
+    
+            for j in range(num_objects):
+    
+                x = x_center[j]
+                y = y_center[j]
+    
+                # Load image
+                img = (asset_images[shape_type[j]] * 255).astype(np.uint8)
+                img_size = sizes[j]
+                img_pil = Image.fromarray(img)
+                if rotate:
+                    rotation = rotations[j]
+                    
+                    # Rotate the image using PIL
+                    img_rotated = img_pil.rotate(rotation, expand=True)
+                    # Convert rotated image back to numpy array
+                    img_rotated = np.array(img_rotated)
+                
+                    # Add image to plot
+                    imgbox = OffsetImage(img_rotated, zoom=img_size / img_rotated.shape[0])
+                else:
+                    imgbox = OffsetImage(img, zoom=img_size / img.shape[0])
+                
+                ab = AnnotationBbox(imgbox, (x, y), frameon=False)
+                ax.add_artist(ab)
+    
+                # Write annotation
+                data[i, j] = th.tensor([0, 0, 0, 0, 0, x, y, round(img_size + img_size * np.random.uniform(0.2, 0.7)), round(img_size + img_size * np.random.uniform(0.2, 0.7))])
+                data[i, j][shape_type[j]+1] = 1
+    
+                # Clear memory for next iteration
+                del img, imgbox, ab
+                if rotate:
+                    del img_pil, img_rotated
+    
+            for j in range(num_objects, max_objects):
+                data[i, j] = th.tensor([1, 0, 0, 0, 0, 0, 0, 0, 0])
+    
+            # Save image
+            image_path = os.path.join(image_dir, f'{i:04d}.jpg')
+            plt.gca().set_axis_off()
+            plt.subplots_adjust(top=1, bottom=0, right=1, left=0, hspace=0, wspace=0)
+            plt.margins(0, 0)
+            plt.savefig(image_path, dpi=100)
+    
+            # Clear memory for next iteration
+            plt.cla()
+            plt.clf()
+            plt.close()
+    
+            # Update progress bar
+            folder_size = folder_size + os.path.getsize(image_path)
+            bar.set_description(f'Creating image dataset, size: {folder_size / 1e6:.2f} MB')
+    
         return data, relationships
 
     
@@ -297,15 +413,13 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
     rel_limit:int = shape_size_max / 2
     
     remove_previous_files()
-    # Create the directory if not exists
-    os.makedirs(image_dir, exist_ok=True)
-    
-    return generate_image()
+
+    return generate_geometric_image() if geometric else generate_real_image()
 
 
 
 
-def data_visualization(train_image_dir: str = "./train_images", train_data_dir: str = "./data/train_data.tensor"):
+def data_visualization(train_image_dir: str = "./train_images", train_data_dir: str = "./data/train_data.tensor", real: bool=False, origami: bool = False):
     """
     Pick 4 random images to display and draw bounding boxes
 
@@ -315,6 +429,10 @@ def data_visualization(train_image_dir: str = "./train_images", train_data_dir: 
         Directory where the train images are stored
     train_data_dir: str
         Directory where the train data are stored
+    real: bool (Optional)
+        If True we assume that we have real image, then the input array will have 4 + 1 classes
+    origami: bool (Optional)
+        If True we assume that we have origami real image, then the labels will be changed
     """
     
     train_data = th.load(train_data_dir)
@@ -330,25 +448,30 @@ def data_visualization(train_image_dir: str = "./train_images", train_data_dir: 
         # Get the current reference
         ax = plt.gca()
         plt.axis('off')
+
+        n_classes = 5 if real else 4
+        if real:
+            if origami:
+                text = ["None", "Dog", "Fish", "Cat", "Crab"]
+            else:
+                text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
+        else:       
+            text = ["None", "Rectangle", "Circle", "Triangle"]
         
         # Draw centers
         for shape in train_data[i]:
+            
+            _class    = shape[:n_classes].argmax()
+            _position = shape[n_classes:]
             # If is a shape
-            if shape[0] != 1:
-                x, y = shape[4], shape[5]
-                w = shape[6]
-                h = shape[7]
-    
-                # Add text
-                text = 'Rectangle'
-                if shape[2] == 1:
-                    text = 'Circle'
-                elif shape[3] == 1:
-                    text = 'Triangle'
+            if _class != 0:
+                x, y = _position[0], _position[1]
+                w = _position[2]
+                h = _position[3]
                     
                 ax.scatter(x, y, color='purple', s=10)
                 ax.add_patch(patches.Rectangle((x - (w/2), y - (h/2)), w, h, facecolor="None", edgecolor="purple", linewidth=3))
-                ax.text(x - (w/2), y - (h/2) - 7, text, color='purple', fontsize=12)
+                ax.text(x - (w/2), y - (h/2) - 7, text[_class], color='purple', fontsize=12)
     
         # Show images
         plt.show()
@@ -473,3 +596,5 @@ def make_DataLoader(train_image_dir: str, test_image_dir: str, image_size: int, 
     # Save dataloaders
     th.save(train_loader, './dataloaders/train_loader.tensor')
     th.save(test_loader, './dataloaders/test_loader.tensor')
+
+    print("Loading Complete")
