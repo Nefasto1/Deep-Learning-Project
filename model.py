@@ -5,22 +5,25 @@
 #####################################################
 # Importing libraries
 import numpy as np
-
 import torch as th
+
 from torch.utils.data import Dataset
+from torchmetrics.classification import BinaryF1Score
 
 from tqdm import trange
-
-import networkx as nx
-
-from torchmetrics.classification import BinaryF1Score
 
 # For reproducibility
 th.manual_seed(3407)
 
+##################################################################################################################
+################################################ MODEL DEFINITION ################################################
+##################################################################################################################
 
+## ------------------------------------------------------------------------------------------------------------ ##
+## ------------------------------------------------- Dataset -------------------------------------------------- ##
+## ------------------------------------------------------------------------------------------------------------ ##
 
-class GeometricFiguresDataset(Dataset):
+class Custom_Dataset(Dataset):
     """
     Class for the Geometric Figures Dataset
 
@@ -50,6 +53,10 @@ class GeometricFiguresDataset(Dataset):
         return image, annotation, relatioships
 
 
+## ------------------------------------------------------------------------------------------------------------ ##
+## ------------------------------------------- Convolutional Layer Block -------------------------------------- ##
+## ------------------------------------------------------------------------------------------------------------ ##
+
 def make_conv_block(in_channel, out_channel, kernel_size=3):
     """
     Function to create a convolutional block containing a convolutional layer, a BatchNormalization Layer and a MaxPool layer
@@ -73,23 +80,9 @@ def make_conv_block(in_channel, out_channel, kernel_size=3):
     )
 
 
-def make_conv_final(in_channel, out_channel):
-    """
-    Function to create a convolutional block containing a convolutional layer, a BatchNormalization Layer and a MaxPool layer
-
-    Parameters
-    ----------
-    in_channels: int
-        Number of input channel
-    out_channels: int
-        Number of output channel
-    """
-    return th.nn.Sequential(
-        th.nn.Conv2d(in_channel, out_channel, kernel_size=3, padding=1),
-        th.nn.BatchNorm2d(out_channel),
-        th.nn.LeakyReLU(0.1),
-    )
-
+## ------------------------------------------------------------------------------------------------------------ ##
+## ---------------------------------------------- Scene Graph Model ------------------------------------------- ##
+## ------------------------------------------------------------------------------------------------------------ ##
 
 class Scene_Graph_Model(th.nn.Module):
     """
@@ -104,12 +97,12 @@ class Scene_Graph_Model(th.nn.Module):
 
         # CNN block to obtain informations from the images
         self.block1 = th.nn.Sequential(
-           make_conv_block(3, 16),                   # (3, 128, 128) -> (16, 64, 64)
-           make_conv_block(16, 32),                  # (16, 64, 64)  -> (32, 32, 32)
-           make_conv_block(32, 64),                  # (32, 32, 32)  -> (64, 16, 16)
-           make_conv_block(64, 128),                 # (64, 16, 16)  -> (128, 8, 8)
-           make_conv_block(128, 256, kernel_size=1), # (128, 8, 8)    -> (256, 4, 4)
-           make_conv_block(256, 512, kernel_size=1), # (256, 4, 4)    -> (256, 2, 2)
+           make_conv_block(3, 16),                    # (3, 128, 128) -> (16, 64, 64)
+           make_conv_block(16, 32),                   # (16, 64, 64)  -> (32, 32, 32)
+           make_conv_block(32, 64),                   # (32, 32, 32)  -> (64, 16, 16)
+           make_conv_block(64, 128),                  # (64, 16, 16)  -> (128, 8, 8)
+           make_conv_block(128, 256, kernel_size=1),  # (128, 8, 8)    -> (256, 4, 4)
+           make_conv_block(256, 512, kernel_size=1),  # (256, 4, 4)    -> (256, 2, 2)
            make_conv_block(512, 1024, kernel_size=1), # (256, 2, 2)    -> (256, 1, 1)
         )
 

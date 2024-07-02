@@ -6,17 +6,12 @@
 
 # Importing libraries
 import numpy as np
+import torch as th
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-
-import torch as th
-
-from tqdm import trange
-
 import networkx as nx
 
-from torchmetrics.classification import BinaryF1Score
 from prettytable import PrettyTable
 
 from data import create_dataset
@@ -24,7 +19,100 @@ from data import create_dataset
 # For reproducibility
 th.manual_seed(3407)
 
+## ------------------------------------------------------------------------------------------------------------ ##
+## -------------------------------------------- Count Parameters ---------------------------------------------- ##
+## ------------------------------------------------------------------------------------------------------------ ##
 
+def count_parameters(model: th.nn.Module):
+    """
+    Function to print the number of parameters for each layer of the input model
+
+    Parameters
+    ----------
+    model: th.nn.Module
+        Model to which print the number of parameters
+    """
+
+    # Define the table's columns 
+    table = PrettyTable(["Modules", "Parameters"])
+    total_params = 0
+
+    # For each parameter with learneble parameters add a row to the table
+    for name, parameter in model.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        params = parameter.numel()
+        table.add_row([name, params])
+        total_params += params
+
+    # Print the table and the total of parameters
+    print(table)
+    print(f"Total Trainable Params: {total_params}")
+
+
+
+## ------------------------------------------------------------------------------------------------------------ ##
+## ------------------------------------------------ Plot losses ----------------------------------------------- ##
+## ------------------------------------------------------------------------------------------------------------ ##
+
+def plot_loss(train_loss: list, test_loss: list):
+    """
+    Function to plot the losses
+
+    Parameters
+    ----------
+    train_loss: list
+        list containing the series of train losses
+    test_loss: list
+        list containing the series of test losses
+    """
+    plt.plot(range(len(train_loss)), train_loss, color="blue", label="train")
+    plt.plot(range(len(test_loss)), test_loss, color="red", label="test")
+    plt.legend()
+    plt.show()
+
+
+
+## ------------------------------------------------------------------------------------------------------------ ##
+## --------------------------------------------- Print Relatioships ------------------------------------------- ##
+## ------------------------------------------------------------------------------------------------------------ ##
+
+def print_relationships(relatioships: th.Tensor, pred_classes: th.Tensor):
+    """
+    Function to print the relatioships between shapes
+
+    Parameters
+    ----------
+    pred_positions: th.Tensor
+        Tensor containing the relatioships
+    pred_classes: th.Tensor
+        Tensor containing the classes
+    """
+
+    # Initialize the classes
+    colors = np.array(["Red", "Green", "Blue", "Black", "Purple"])
+    classes = np.array(["None", "Rectangle", "Circle", "Triangle"])
+    positions = np.array(["Right", "Left", "Above", "Below", "Front", "Behind"])
+    
+    classes_names = classes[pred_classes[:, :4].argmax(1)]
+
+    # Print the relationship if exists
+    for i, pred_position in enumerate(positions):
+        for j, pred_class in enumerate(classes_names):
+            for k, target_class in enumerate(classes_names):
+                if relatioships[i, j, k]:
+                    print(colors[j], pred_class, "is", pred_position, "of", colors[k], target_class)
+                    
+
+
+##################################################################################################################
+################################################# MODEL UTILITY ##################################################
+##################################################################################################################
+
+
+## ------------------------------------------------------------------------------------------------------------ ##
+## ----------------------------------------------- Train Model ------------------------------------------------ ##
+## ------------------------------------------------------------------------------------------------------------ ##
 
 def train_model(model: th.nn.Module, optimizer: th.optim.Optimizer, criterion, train_loader: th.utils.data.DataLoader, test_loader: th.utils.data.DataLoader, epochs:int=1000):
     """
@@ -56,6 +144,9 @@ def train_model(model: th.nn.Module, optimizer: th.optim.Optimizer, criterion, t
         Tensor containing the test losses
     """
 
+    ####################
+    ## INITIALIZATION ##
+    ####################
     device = th.device("cuda" if th.cuda.is_available() else "cpu")
     
     # Initialize the final lists
@@ -68,14 +159,17 @@ def train_model(model: th.nn.Module, optimizer: th.optim.Optimizer, criterion, t
 
     # Define the f1 score functional
     f1 = BinaryF1Score().to(device)
-    
     bar = trange(epochs, desc="Loss ?/?, Acc ?/?")
     for i in bar:
         epoch_loss  = 0
         accuracy    = 0
         relation_f1 = 0
         model.train()
+
         
+        ################
+        ## TRAIN LOOP ##
+        ################
         for image, label, relation in train_loader:
             # Retrieve the train data
             image, label, relation = image.float().to(device), label.to(device), relation.to(device)
@@ -109,7 +203,11 @@ def train_model(model: th.nn.Module, optimizer: th.optim.Optimizer, criterion, t
         epoch_loss  = 0
         accuracy    = 0
         relation_f1 = 0
+
         
+        #####################
+        ## EVALUATION LOOP ##
+        #####################
         with th.no_grad():
             for image, label, relation in test_loader:
                 # Retrive the test data
@@ -139,47 +237,10 @@ def train_model(model: th.nn.Module, optimizer: th.optim.Optimizer, criterion, t
 
     return model, train_losses, test_losses
 
-def count_parameters(model: th.nn.Module):
-    """
-    Function to print the number of parameters for each layer of the input model
 
-    Parameters
-    ----------
-    model: th.nn.Module
-        Model to which print the number of parameters
-    """
-
-    # Define the table's columns 
-    table = PrettyTable(["Modules", "Parameters"])
-    total_params = 0
-
-    # For each parameter with learneble parameters add a row to the table
-    for name, parameter in model.named_parameters():
-        if not parameter.requires_grad:
-            continue
-        params = parameter.numel()
-        table.add_row([name, params])
-        total_params += params
-
-    # Print the table and the total of parameters
-    print(table)
-    print(f"Total Trainable Params: {total_params}")
-
-def plot_loss(train_loss: list, test_loss: list):
-    """
-    Function to plot the losses
-
-    Parameters
-    ----------
-    train_loss: list
-        list containing the series of train losses
-    test_loss: list
-        list containing the series of test losses
-    """
-    plt.plot(range(len(train_loss)), train_loss, color="blue", label="train")
-    plt.plot(range(len(test_loss)), test_loss, color="red", label="test")
-    plt.legend()
-    plt.show()
+## ------------------------------------------------------------------------------------------------------------ ##
+## ------------------------------------------------ Test Model ------------------------------------------------ ##
+## ------------------------------------------------------------------------------------------------------------ ##
 
 def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE_MIN: int=10, SHAPE_SIZE_MAX: int=35, geometric: bool = True, rotate: bool = False, origami: bool = False):
     """
@@ -207,14 +268,30 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
         Affect only the Real images
     """
 
+    ####################
+    ## INITIALIZATION ##
+    ####################
     # Define the f1 score functional
     f1 = BinaryF1Score().to(device)
+    num_obj = 4 if not geometric else 5
+    num_classes = 5 if not geometric else 4
     
+    if not geometric:
+        if origami:
+            text = ["None", "Dog", "Fish", "Cat", "Crab"]
+        else:
+            text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
+    else:       
+        text = ["None", "Rectangle", "Circle", "Triangle"]
+        
     # Load mu and sigma used to normalize the images
     mu = th.load(data_dir + "/mu")
     std = th.load(data_dir + "/std")
+
     
-    num_obj = 4 if not geometric else 5
+    ######################
+    ## MODEL PREDICTION ##
+    ######################
     # Generate new image
     test_image_data, relation = create_dataset(1, 128, "./", num_obj, SHAPE_SIZE_MIN, SHAPE_SIZE_MAX, geometric=geometric, rotate=rotate, origami=origami)
     
@@ -230,15 +307,10 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     with th.no_grad():
         out, out_relation = model(test_image_tensor)
 
-    num_classes = 5 if not geometric else 4
-    if not geometric:
-        if origami:
-            text = ["None", "Dog", "Fish", "Cat", "Crab"]
-        else:
-            text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
-    else:       
-        text = ["None", "Rectangle", "Circle", "Triangle"]
     
+    ###########################
+    ## PREDICTION EVALUATION ##
+    ###########################
     out[:, :, :num_classes] = th.softmax(out[:, :, :num_classes], dim=2)
     out = out.cpu().numpy()[0]
     
@@ -251,7 +323,11 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     
     # Get the current reference
     ax = axes[0]
+
     
+    ##############################
+    ## PREDICTION VISUALIZATION ##
+    ##############################
     # Draw centers
     for i, objects in enumerate(out):
         pred_class = np.argmax(objects[:num_classes])
@@ -263,11 +339,15 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
             w = position[2]  # * IMAGE_SIZE
             h = position[3]  # * IMAGE_SIZE
     
-            color = "green" if pred_class == test_image_data[0, i, :4].argmax() else "purple"
+            color = "green" if pred_class == test_image_data[0, i, :num_classes].argmax() else "purple"
             ax.scatter(x, y, color=color, s=10)
             ax.add_patch(patches.Rectangle((x - (w / 2), y - (h / 2)), w, h, facecolor="None", edgecolor=color, linewidth=3))
             ax.text(x - 10, y - 7, text[pred_class], color=color, fontsize=12)
+
     
+    #################################
+    ## RELATIONSHIPS VISUALIZATION ##
+    #################################
     axes[0].set_title(f"Relation Accuracy: {f1(th.sigmoid(out_relation) > 0.5, relation.to(device)).item():.2f}")
 
     # Process relation data for graph
@@ -362,29 +442,3 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     plt.show()
 
     return test_image_data, relation, out, out_relation
-
-def print_relationships(relatioships: th.Tensor, pred_classes: th.Tensor):
-    """
-    Function to print the relatioships between shapes
-
-    Parameters
-    ----------
-    pred_positions: th.Tensor
-        Tensor containing the relatioships
-    pred_classes: th.Tensor
-        Tensor containing the classes
-    """
-
-    # Initialize the classes
-    colors = np.array(["Red", "Green", "Blue", "Black", "Purple"])
-    classes = np.array(["None", "Rectangle", "Circle", "Triangle"])
-    positions = np.array(["Right", "Left", "Above", "Below", "Front", "Behind"])
-    
-    classes_names = classes[pred_classes[:, :4].argmax(1)]
-
-    # Print the relationship if exists
-    for i, pred_position in enumerate(positions):
-        for j, pred_class in enumerate(classes_names):
-            for k, target_class in enumerate(classes_names):
-                if relatioships[i, j, k]:
-                    print(colors[j], pred_class, "is", pred_position, "of", colors[k], target_class)
