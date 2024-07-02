@@ -535,8 +535,8 @@ def make_DataLoader(train_image_dir: str, test_image_dir: str, image_size: int, 
     ## GENERATE DATASET ##
     ######################
     # Define the torch Dataset
-    train_dataset = GeometricFiguresDataset(X_train, y_train, train_relationships)
-    test_dataset = GeometricFiguresDataset(X_test, y_test, test_relationships)
+    train_dataset = Custom_Dataset(X_train, y_train, train_relationships)
+    test_dataset = Custom_Dataset(X_test, y_test, test_relationships)
 
     # Free the memory
     del X_train
