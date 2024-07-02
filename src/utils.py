@@ -8,13 +8,17 @@
 import numpy as np
 import torch as th
 
+from torchmetrics.classification import BinaryF1Score
+
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import networkx as nx
 
 from prettytable import PrettyTable
 
-from data import create_dataset
+from src.data import create_dataset
+
+import os
 
 # For reproducibility
 th.manual_seed(3407)
@@ -267,7 +271,171 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
         If True generate images with origami shapes
         Affect only the Real images
     """
+    
+    ######################
+    ## HELPER FUNCTIONS ##
+    ######################
+    
+    ## ------------------------------------------------------------------------------------------------------------ ##
+    ## ----------------------------------------- PREDICTION VISUALIZATION ----------------------------------------- ##
+    ## ------------------------------------------------------------------------------------------------------------ ##
+    def plot_output(test_image, num_classes, test_image_data, out, metric):
+        """
+        Function to plot the output of the model
 
+        Parameters
+        ----------
+        out: th.Tensor
+            Tensor containing the output of the model
+        metric: float
+            Metric to print
+        """
+        # Create figure
+        fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+        
+        # Plot the image and the predicted bounding boxes
+        plt.imshow(test_image[::-1], origin='lower')
+        plt.axis('off')
+
+        # Create the text mapping for the classes
+        if geometric:
+            text = ["None", "Rectangle", "Circle", "Triangle"]
+        else:
+            if origami:
+                text = ["None", "Dog", "Fish", "Cat", "Crab"]
+            else:
+                text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
+        
+        # Plot the bounding boxes, centers and classes
+        for i, objects in enumerate(out):
+            pred_class = np.argmax(objects[:num_classes])
+            position   = objects[num_classes:]
+            
+            if pred_class != 0:
+                x = position[0]  # * IMAGE_SIZE
+                y = position[1]  # * IMAGE_SIZE
+                w = position[2]  # * IMAGE_SIZE
+                h = position[3]  # * IMAGE_SIZE
+        
+                color = "green" if pred_class == test_image_data[0, i, :num_classes].argmax() else "purple"
+                ax.scatter(x, y, color=color, s=10) # Centers
+                ax.add_patch(patches.Rectangle((x - (w / 2), y - (h / 2)), w, h, facecolor="None", edgecolor=color, linewidth=3)) # Bounding boxes
+                ax.text(x - 10, y - 7, text[pred_class], color=color, fontsize=12) # Classes
+
+        ax.set_title(f"Relation F1 Score: {metric:.2f}")
+
+        plt.show()
+
+    ## ------------------------------------------------------------------------------------------------------------ ##
+    ## ---------------------------------------- RELATIONSHIPS VISUALIZATION --------------------------------------- ##
+    ## ------------------------------------------------------------------------------------------------------------ ##
+    def plot_relation(out_relation, out, geometric):
+        """
+        Function to plot the relationships graph
+
+        Parameters
+        ----------
+        out_relation: th.Tensor
+            Tensor containing the output relationships of the model
+        out
+            Tensor containing the output of the model
+        """
+        # Create figure
+        plt.figure(figsize=(15, 15))
+
+        # Map each object in out to its corresponding class and color as string
+        if geometric:
+            text = ["None", "Rectangle", "Circle", "Triangle"]
+            objects = [f"{color} {object}" for color, object in zip(
+                ["Red", "Green", "Blue", "Black", "Purple"], # colors
+                [text[x] for x in out[:, :4].argmax(1) if x] # objects
+                )]
+        else:
+            if origami:
+                text = ["None", "Dog", "Fish", "Cat", "Crab"]
+            else:
+                text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
+            objects = [text[x] for x in out[:, :5].argmax(1) if x]
+
+        # Process relation data to generate edges
+        edges = [[objects[i], objects[j], "is at the right of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 0][0]) > 0.5).int().nonzero().tolist()]] + \
+            [[objects[i], objects[j], "is at the left of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 1][0]) > 0.5).int().nonzero().tolist()]] + \
+            [[objects[i], objects[j], "is above of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 2][0]) > 0.5).int().nonzero().tolist()]] + \
+            [[objects[i], objects[j], "is below of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 3][0]) > 0.5).int().nonzero().tolist()]] + \
+            [[objects[i], objects[j], "is in front of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 4][0]) > 0.5).int().nonzero().tolist()]] + \
+            [[objects[i], objects[j], "is behind of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 5][0]) > 0.5).int().nonzero().tolist()]]
+        
+        # Remove one of the two edges if they are the same relation but in opposite directions
+        for edge1 in edges:
+            for edge2 in edges:
+                if edge1[0] == edge2[1] and edge1[1] == edge2[0] and edge1[2] in ["is at the right of", "is at the left of"] and edge2[2] in ["is at the right of", "is at the left of"]:
+                    choice = np.random.choice([0, 1])
+                    if choice == 0:
+                        edges.remove(edge1)
+                        break
+                    else:
+                        edges.remove(edge2)
+                elif edge1[0] == edge2[1] and edge1[1] == edge2[0] and edge1[2] in ["is above of", "is below of"] and edge2[2] in ["is above of", "is below of"]:
+                    choice = np.random.choice([0, 1])
+                    if choice == 0:
+                        edges.remove(edge1)
+                        break
+                    else:
+                        edges.remove(edge2)
+                elif edge1[0] == edge2[1] and edge1[1] == edge2[0] and edge1[2] in ["is in front of", "is behind of"] and edge2[2] in ["is in front of", "is behind of"]:
+                    choice = np.random.choice([0, 1])
+                    if choice == 0:
+                        edges.remove(edge1)
+                        break
+                    else:
+                        edges.remove(edge2)
+        
+        # Create the graph
+        G = nx.MultiDiGraph()
+        
+        # Add edges to the graph
+        for edge in edges:
+            G.add_edge(edge[0], edge[1], label=edge[2])
+        
+        # Identify pairs of nodes with multiple edges with different directions
+        multiple_edges = [(u, v) for u, v, weight in G.edges(keys=True) if (v, u) in G.edges(keys=True)]
+        
+        # Draw the graph
+        pos = nx.shell_layout(G) # Position of nodes
+        nx.draw_networkx_labels(G, pos, font_size=7, font_color='black', horizontalalignment='center')
+        edges_rads = [] # Needed to avoid overlapping edges
+        for (u, v, data) in G.edges(data=True):
+            rad = 0
+            # Manage multiple edges between the same nodes but with different directions
+            if (u, v) in multiple_edges and (u, v, 0) in edges_rads or (v, u, 0) in edges_rads:
+                rad = 0.2
+            # Manage overlapping edges
+            tmp_edges_rads = edges_rads.copy()
+            while (u, v, rad) in tmp_edges_rads:
+                tmp_edges_rads.pop(tmp_edges_rads.index((u, v, rad)))
+                rad += 0.2
+            # Draw the edge
+            color = [u.split()[0].lower() if geometric else 'black'][0]
+            nx.draw_networkx_edges(G,
+                                pos,
+                                edgelist=[(u, v)],
+                                width=2,
+                                edge_color=color,
+                                connectionstyle=f'arc3, rad={rad}',
+                                arrowsize = 30,
+                                min_source_margin=50,
+                                min_target_margin=50)
+            nx.draw_networkx_edge_labels(G,
+                                        pos,
+                                        edge_labels={(u, v): data['label']},
+                                        font_color=color,
+                                        connectionstyle=f'arc3, rad={rad}')
+            edges_rads.append((u, v, rad))
+        
+        plt.title("Relation Graph")
+        
+        plt.show()
+    
     ####################
     ## INITIALIZATION ##
     ####################
@@ -275,20 +443,11 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     f1 = BinaryF1Score().to(device)
     num_obj = 4 if not geometric else 5
     num_classes = 5 if not geometric else 4
-    
-    if not geometric:
-        if origami:
-            text = ["None", "Dog", "Fish", "Cat", "Crab"]
-        else:
-            text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
-    else:       
-        text = ["None", "Rectangle", "Circle", "Triangle"]
-        
-    # Load mu and sigma used to normalize the images
-    mu = th.load(data_dir + "/mu")
-    std = th.load(data_dir + "/std")
 
-    
+    # Load mu and sigma used to normalize the images
+    mu = th.load("./mu")
+    std = th.load("./std")
+
     ######################
     ## MODEL PREDICTION ##
     ######################
@@ -297,6 +456,9 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     
     # Load image
     test_image = plt.imread("0000.jpg")
+
+    # Delete the image file
+    os.remove("0000.jpg")
     
     # Transform image to tensor
     test_image_tensor = (th.from_numpy(test_image) - mu) / std
@@ -307,138 +469,16 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     with th.no_grad():
         out, out_relation = model(test_image_tensor)
 
-    
     ###########################
     ## PREDICTION EVALUATION ##
     ###########################
+    metric = f1(th.sigmoid(out_relation) > 0.5, relation.to(device)).item()
+
     out[:, :, :num_classes] = th.softmax(out[:, :, :num_classes], dim=2)
     out = out.cpu().numpy()[0]
-    
-    # Create figure with subplots
-    fig, axes = plt.subplots(1, 2, figsize=(20, 10))
-    
-    # Plot the image and the predicted bounding boxes
-    axes[0].imshow(test_image[::-1], origin='lower')
-    axes[0].axis('off')
-    
-    # Get the current reference
-    ax = axes[0]
 
-    
-    ##############################
-    ## PREDICTION VISUALIZATION ##
-    ##############################
-    # Draw centers
-    for i, objects in enumerate(out):
-        pred_class = np.argmax(objects[:num_classes])
-        position   = objects[num_classes:]
-        
-        if pred_class != 0:
-            x = position[0]  # * IMAGE_SIZE
-            y = position[1]  # * IMAGE_SIZE
-            w = position[2]  # * IMAGE_SIZE
-            h = position[3]  # * IMAGE_SIZE
-    
-            color = "green" if pred_class == test_image_data[0, i, :num_classes].argmax() else "purple"
-            ax.scatter(x, y, color=color, s=10)
-            ax.add_patch(patches.Rectangle((x - (w / 2), y - (h / 2)), w, h, facecolor="None", edgecolor=color, linewidth=3))
-            ax.text(x - 10, y - 7, text[pred_class], color=color, fontsize=12)
-
-    
-    #################################
-    ## RELATIONSHIPS VISUALIZATION ##
-    #################################
-    axes[0].set_title(f"Relation Accuracy: {f1(th.sigmoid(out_relation) > 0.5, relation.to(device)).item():.2f}")
-
-    # Process relation data for graph
-    right = out_relation[:, 0][0]
-    left = out_relation[:, 1][0]
-    above = out_relation[:, 2][0]
-    below = out_relation[:, 3][0]
-    behind = out_relation[:, 4][0]
-    front = out_relation[:, 5][0]
-    
-    right_edges = [tuple(x) for x in right.nonzero().tolist()]
-    left_edges = [tuple(x) for x in left.nonzero().tolist()]
-    above_edges = [tuple(x) for x in above.nonzero().tolist()]
-    below_edges = [tuple(x) for x in below.nonzero().tolist()]
-    behind_edges = [tuple(x) for x in behind.nonzero().tolist()]
-    front_edges = [tuple(x) for x in front.nonzero().tolist()]
-    
-    # map each object in out to its corresponding class string
-    objects = out[:, :4].tolist()
-    objects = np.argmax(objects, axis=1)
-    objects = ["Rectangle" if x == 1 else "Circle" if x == 2 else "Triangle" if x == 3 else None for x in objects]
-    
-    # add color to each object
-    colors = ["Red", "Green", "Blue", "Black", "Purple"]
-    objects = [f"{color} {object}" if object is not None else None for color, object in zip(colors, objects)]
-    
-    # change edge values to object names
-    right_edges = [[objects[i], objects[j], "is at the right of"] for i, j in right_edges]
-    left_edges = [[objects[i], objects[j], "is at the left of"] for i, j in left_edges]
-    above_edges = [[objects[i], objects[j], "is above of"] for i, j in above_edges]
-    below_edges = [[objects[i], objects[j], "is below of"] for i, j in below_edges]
-    behind_edges = [[objects[i], objects[j], "is behind of"] for i, j in behind_edges]
-    front_edges = [[objects[i], objects[j], "is in front of"] for i, j in front_edges]
-    
-    # concatenate all edges
-    edges = right_edges + left_edges + above_edges + below_edges
-    
-    # remove one of the two edges if they are the same relation but in opposite directions
-    tmp_edges = []
-    for edge1 in edges:
-        for edge2 in edges:
-            if edge1[0] == edge2[1] and edge1[1] == edge2[0] and edge1[2] == "is at the right of" and edge2[2] == "is at the left of":
-                choice = np.random.choice([0, 1])
-                if choice == 0:
-                    tmp_edges.append(edge1)
-                    break
-                else:
-                    tmp_edges.append(edge2)
-            elif edge1[0] == edge2[1] and edge1[1] == edge2[0] and edge1[2] == "is above of" and edge2[2] == "is below of":
-                choice = np.random.choice([0, 1])
-                if choice == 0:
-                    tmp_edges.append(edge1)
-                    break
-                else:
-                    tmp_edges.append(edge2)
-            elif edge1[0] == edge2[1] and edge1[1] == edge2[0] and edge1[2] == "is behind of" and edge2[2] == "is in front of":
-                choice = np.random.choice([0, 1])
-                if choice == 0:
-                    tmp_edges.append(edge1)
-                    break
-                else:
-                    tmp_edges.append(edge2)
-    
-    edges = [edge for edge in edges if edge not in tmp_edges]
-    
-    # Create the graph
-    G = nx.DiGraph()
-    
-    # Add edges to the graph
-    for edge in edges:
-        G.add_edge(edge[0], edge[1], label=edge[2])
-    
-    # Identify pairs of nodes with multiple edges
-    multiple_edges = [(u, v) for u, v, weights in G.edges(keys=True) if (v, u) in G.edges(keys=True) and (u, v) in G.edges(keys=True)]
-    
-    # Draw the graph
-    pos = nx.shell_layout(G)  # Position of nodes
-    
-    nx.draw_networkx_nodes(G, pos, node_size=0, node_color='none', ax=axes[1])
-    nx.draw_networkx_labels(G, pos, font_size=12, font_color='red', horizontalalignment='center', ax=axes[1])
-    
-    for (u, v, data) in G.edges(data=True):
-        rad = 0
-        if (u, v) in multiple_edges or (v, u) in multiple_edges:
-            rad = 0.3
-        nx.draw_networkx_edges(G, pos, edgelist=[(u, v)], width=2, edge_color='black', ax=axes[1], arrowsize = 30, min_source_margin=50, min_target_margin=50)
-        nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): data['label']}, font_color='red', ax=axes[1])
-    
-    axes[1].axis('off')
-    axes[1].set_title("Relation Graph")
-    
-    plt.show()
-
-    return test_image_data, relation, out, out_relation
+    ##########################
+    ## VISUALIZATION OUTPUT ##
+    ##########################
+    plot_output(test_image, num_classes, test_image_data, out, metric)
+    plot_relation(out_relation, out, geometric)

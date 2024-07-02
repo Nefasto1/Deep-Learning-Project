@@ -8,7 +8,6 @@ import numpy as np
 import torch as th
 
 from torch.utils.data import Dataset
-from torchmetrics.classification import BinaryF1Score
 
 from tqdm import trange
 

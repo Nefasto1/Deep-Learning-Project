@@ -20,7 +20,7 @@ import matplotlib.patches as patches
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
 
-from model import Custom_Dataset
+from src.model import Custom_Dataset
 
 from tqdm import trange
 from PIL import Image
@@ -47,7 +47,7 @@ def remove_previous_files(image_dir: str):
             if platform.system() == 'Linux':
                 subprocess.run(['rm', image_dir, '-rf'])
             elif platform.system() == 'Windows':
-                subprocess.run(['rmdir /Q /S', image_dir])        
+                subprocess.run(['rmdir /Q /S', image_dir], shell=True)        
     # Create directories
     os.makedirs(image_dir, exist_ok=True)
     os.makedirs('data', exist_ok=True)
@@ -320,7 +320,7 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
         if not origami:
             assets = ["dog.png", "fish2.png", "rath.png", "bucket.png"]
         else:
-            assets = ["dog2.png", "fish.png", "cat(2).png", "crab.png"]
+            assets = ["dog2.png", "fish.png", "cat.png", "crab.png"]
         asset_images = [mpimg.imread(os.path.join("assets", asset)) for asset in assets]
         
         # Create annotation tensor
