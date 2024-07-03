@@ -12,11 +12,14 @@ from torchmetrics.classification import BinaryF1Score
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+
 import networkx as nx
 
 from prettytable import PrettyTable
 
 from src.data import create_dataset
+
+from tqdm import trange
 
 import os
 
@@ -70,9 +73,23 @@ def plot_loss(train_loss: list, test_loss: list):
     test_loss: list
         list containing the series of test losses
     """
-    plt.plot(range(len(train_loss)), train_loss, color="blue", label="train")
-    plt.plot(range(len(test_loss)), test_loss, color="red", label="test")
+    fig = plt.figure(figsize=(10, 10))
+    ax = fig.add_subplot()
+    plt.plot(range(len(train_loss)), train_loss, color="#4e518b", label="Train", linewidth=3)
+    plt.plot(range(len(test_loss)), test_loss, color="#9a3001", label="Test", linewidth=3)
+    plt.xlabel("Epochs")
+    plt.ylabel("Loss")
+    plt.title("Train and Test Losses", fontsize=40, fontdict={"family": "fantasy"})
+    plt.rcParams.update({'font.size': 25})
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
     plt.legend()
+    # Remove top and right spines
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    # Add text near line ends with final value
+    plt.text(len(train_loss), train_loss[-1], f"{train_loss[-1]:.2f}", fontsize=12, color="#4e518b")
+    plt.text(len(test_loss), test_loss[-1], f"{test_loss[-1]:.2f}", fontsize=12, color="#9a3001")
     plt.show()
 
 
