@@ -278,16 +278,18 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     ## ------------------------------------------------------------------------------------------------------------ ##
     ## ----------------------------------------- PREDICTION VISUALIZATION ----------------------------------------- ##
     ## ------------------------------------------------------------------------------------------------------------ ##
-    def plot_output(test_image, test_image_data, out):
+    def plot_output(test_image, test_image_data, prediction):
         """
         Function to plot the output of the model
 
         Parameters
         ----------
-        out: th.Tensor
-            Tensor containing the output of the model
-        metric: float
-            Metric to print
+        test_image: th.Tensor
+            Tensor containing the image
+        test_image_data: th.Tensor
+            Tensor containing the image
+        prediction: th.Tensor
+            Tensor containing the model prediction
         """
         f1_function = BinaryF1Score().to(device)
         f1_score = f1_function(th.sigmoid(out_relation) > 0.5, relation.to(device)).item()
@@ -309,7 +311,7 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
                 text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
         
         # Plot the bounding boxes, centers and classes
-        for i, objects in enumerate(out):
+        for i, objects in enumerate(prediction):
             pred_class = np.argmax(objects[:num_classes])
             position   = objects[num_classes:]
             
@@ -336,10 +338,10 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
 
         Parameters
         ----------
-        out_relation: th.Tensor
-            Tensor containing the output relationships of the model
         out
             Tensor containing the output of the model
+        out_relation: th.Tensor
+            Tensor containing the output relationships of the model
         """
         # Create figure
         plt.figure(figsize=(15, 15))
@@ -479,5 +481,5 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     ##########################
     ## VISUALIZATION OUTPUT ##
     ##########################
-    plot_output(test_image, num_classes, test_image_data, out, metric)
-    plot_relation(out_relation, out, geometric)
+    plot_output(test_image, test_image_data, out)
+    plot_relation(out, out_relation)
