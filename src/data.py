@@ -45,9 +45,9 @@ def remove_previous_files(image_dir: str):
         print(f"The directory {image_dir} already exists. Do you want to delete it? [y/n]")
         if input() in ['y', 'Y']:
             if platform.system() == 'Linux':
-                subprocess.run(['rm', image_dir, '-rf'])
+                subprocess.run('rm -rf ' + image_dir)
             elif platform.system() == 'Windows':
-                subprocess.run(['rmdir /Q /S', image_dir], shell=True)        
+                subprocess.run('rmdir /Q /S ' + image_dir, shell=True)        
     # Create directories
     os.makedirs(image_dir, exist_ok=True)
     os.makedirs('data', exist_ok=True)
