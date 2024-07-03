@@ -275,11 +275,10 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     ######################
     ## HELPER FUNCTIONS ##
     ######################
-    
     ## ------------------------------------------------------------------------------------------------------------ ##
     ## ----------------------------------------- PREDICTION VISUALIZATION ----------------------------------------- ##
     ## ------------------------------------------------------------------------------------------------------------ ##
-    def plot_output(test_image, num_classes, test_image_data, out, metric):
+    def plot_output(test_image, test_image_data, out):
         """
         Function to plot the output of the model
 
@@ -290,6 +289,9 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
         metric: float
             Metric to print
         """
+        f1_function = BinaryF1Score().to(device)
+        f1_score = f1_function(th.sigmoid(out_relation) > 0.5, relation.to(device)).item()
+        
         # Create figure
         fig, ax = plt.subplots(1, 1, figsize=(15, 15))
         
@@ -312,24 +314,23 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
             position   = objects[num_classes:]
             
             if pred_class != 0:
-                x = position[0]  # * IMAGE_SIZE
-                y = position[1]  # * IMAGE_SIZE
-                w = position[2]  # * IMAGE_SIZE
-                h = position[3]  # * IMAGE_SIZE
+                x, y = position[0], position[1]    
+                w = position[2]  
+                h = position[3]  
         
                 color = "green" if pred_class == test_image_data[0, i, :num_classes].argmax() else "purple"
                 ax.scatter(x, y, color=color, s=10) # Centers
                 ax.add_patch(patches.Rectangle((x - (w / 2), y - (h / 2)), w, h, facecolor="None", edgecolor=color, linewidth=3)) # Bounding boxes
                 ax.text(x - 10, y - 7, text[pred_class], color=color, fontsize=12) # Classes
 
-        ax.set_title(f"Relation F1 Score: {metric:.2f}")
+        ax.set_title(f"Relation F1 Score: {f1_score:.2f}")
 
         plt.show()
 
     ## ------------------------------------------------------------------------------------------------------------ ##
     ## ---------------------------------------- RELATIONSHIPS VISUALIZATION --------------------------------------- ##
     ## ------------------------------------------------------------------------------------------------------------ ##
-    def plot_relation(out_relation, out, geometric):
+    def plot_relation(out, out_relation):
         """
         Function to plot the relationships graph
 
@@ -346,9 +347,10 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
         # Map each object in out to its corresponding class and color as string
         if geometric:
             text = ["None", "Rectangle", "Circle", "Triangle"]
-            objects = [f"{color} {object}" for color, object in zip(
-                ["Red", "Green", "Blue", "Black", "Purple"], # colors
-                [text[x] for x in out[:, :4].argmax(1) if x] # objects
+            objects = [f"{color} {shape}" 
+                       for color, shape 
+                       in zip(["Red", "Green", "Blue", "Black", "Purple"], # colors
+                              [text[x] for x in out[:, :4].argmax(1) if x] # objects
                 )]
         else:
             if origami:
@@ -359,12 +361,12 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
 
         # Process relation data to generate edges
         edges = [[objects[i], objects[j], "is at the right of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 0][0]) > 0.5).int().nonzero().tolist()]] + \
-            [[objects[i], objects[j], "is at the left of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 1][0]) > 0.5).int().nonzero().tolist()]] + \
-            [[objects[i], objects[j], "is above of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 2][0]) > 0.5).int().nonzero().tolist()]] + \
-            [[objects[i], objects[j], "is below of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 3][0]) > 0.5).int().nonzero().tolist()]] + \
-            [[objects[i], objects[j], "is in front of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 4][0]) > 0.5).int().nonzero().tolist()]] + \
-            [[objects[i], objects[j], "is behind of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 5][0]) > 0.5).int().nonzero().tolist()]]
-        
+                [[objects[i], objects[j], "is at the left of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 1][0]) > 0.5).int().nonzero().tolist()]]  + \
+                [[objects[i], objects[j], "is above of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 2][0]) > 0.5).int().nonzero().tolist()]]        + \
+                [[objects[i], objects[j], "is below of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 3][0]) > 0.5).int().nonzero().tolist()]]        + \
+                [[objects[i], objects[j], "is in front of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 4][0]) > 0.5).int().nonzero().tolist()]]     + \
+                [[objects[i], objects[j], "is behind of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 5][0]) > 0.5).int().nonzero().tolist()]]
+            
         # Remove one of the two edges if they are the same relation but in opposite directions
         for edge1 in edges:
             for edge2 in edges:
@@ -440,7 +442,6 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     ## INITIALIZATION ##
     ####################
     # Define the f1 score functional
-    f1 = BinaryF1Score().to(device)
     num_obj = 4 if not geometric else 5
     num_classes = 5 if not geometric else 4
 
@@ -472,8 +473,6 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     ###########################
     ## PREDICTION EVALUATION ##
     ###########################
-    metric = f1(th.sigmoid(out_relation) > 0.5, relation.to(device)).item()
-
     out[:, :, :num_classes] = th.softmax(out[:, :, :num_classes], dim=2)
     out = out.cpu().numpy()[0]
 
