@@ -62,7 +62,9 @@ def count_parameters(model: th.nn.Module):
 ## ------------------------------------------------ Plot losses ----------------------------------------------- ##
 ## ------------------------------------------------------------------------------------------------------------ ##
 
-def plot_loss(train_loss: list, test_loss: list, title: str):
+def plot_loss(train_loss: list, 
+              test_loss: list, 
+              title: str):
     """
     Function to plot the losses
 
@@ -104,7 +106,8 @@ def plot_loss(train_loss: list, test_loss: list, title: str):
 ## --------------------------------------------- Print Relatioships ------------------------------------------- ##
 ## ------------------------------------------------------------------------------------------------------------ ##
 
-def print_relationships(relatioships: th.Tensor, pred_classes: th.Tensor):
+def print_relationships(relatioships: th.Tensor, 
+                        pred_classes: th.Tensor):
     """
     Function to print the relatioships between shapes
 
@@ -141,7 +144,12 @@ def print_relationships(relatioships: th.Tensor, pred_classes: th.Tensor):
 ## ----------------------------------------------- Train Model ------------------------------------------------ ##
 ## ------------------------------------------------------------------------------------------------------------ ##
 
-def train_model(model: th.nn.Module, optimizer: th.optim.Optimizer, criterion, train_loader: th.utils.data.DataLoader, test_loader: th.utils.data.DataLoader, epochs:int=1000):
+def train_model(model: th.nn.Module, 
+                optimizer: th.optim.Optimizer, 
+                criterion, 
+                train_loader: th.utils.data.DataLoader, 
+                test_loader: th.utils.data.DataLoader, 
+                epochs:int=1000):
     """
     Function to train the specified model. (Specific for our models)
 
@@ -269,7 +277,14 @@ def train_model(model: th.nn.Module, optimizer: th.optim.Optimizer, criterion, t
 ## ------------------------------------------------ Test Model ------------------------------------------------ ##
 ## ------------------------------------------------------------------------------------------------------------ ##
 
-def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE_MIN: int=10, SHAPE_SIZE_MAX: int=35, geometric: bool = True, rotate: bool = False, origami: bool = False):
+def test_model(model: th.nn.Module, 
+               device: th.device, 
+               data_dir: str, 
+               SHAPE_SIZE_MIN: int=10, 
+               SHAPE_SIZE_MAX: int=35, 
+               geometric: bool = True, 
+               rotate: bool = False, 
+               origami: bool = False):
     """
     Function to test the model, generate a new image and test the model over that
 
@@ -355,7 +370,8 @@ def test_model(model: th.nn.Module, device: th.device, data_dir: str, SHAPE_SIZE
     ## ------------------------------------------------------------------------------------------------------------ ##
     ## ---------------------------------------- RELATIONSHIPS VISUALIZATION --------------------------------------- ##
     ## ------------------------------------------------------------------------------------------------------------ ##
-    def plot_relation(out, out_relation):
+    def plot_relation(out: th.Tensor, 
+                      out_relation: th.Tensor):
         """
         Function to plot the relationships graph
 
