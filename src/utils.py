@@ -458,7 +458,10 @@ def test_model(model: th.nn.Module,
                 tmp_edges_rads.pop(tmp_edges_rads.index((u, v, rad)))
                 rad += 0.2
             # Draw the edge
-            color = [u.split()[0].lower() if geometric else 'black'][0]
+            color = "black"
+            if geometric:
+                color = u.split()[0].lower()
+                
             nx.draw_networkx_edges(G,
                                 pos,
                                 edgelist=[(u, v)],
@@ -472,6 +475,8 @@ def test_model(model: th.nn.Module,
                                         pos,
                                         edge_labels={(u, v): data['label']},
                                         font_color=color,
+                                        font_size=22,
+                                        font_family="sans-serif",
                                         connectionstyle=f'arc3, rad={rad}')
             edges_rads.append((u, v, rad))
         
