@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.image as mpimg
 from matplotlib.offsetbox import OffsetImage, AnnotationBbox
+from matplotlib.transforms import Affine2D
 
 from src.model import Custom_Dataset
 
@@ -266,7 +267,7 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
                 x = x_center[row]
                 y = y_center[row]
                 r = radius[row]
-    
+
                 ax.add_patch(patches.Circle((x, y), r, facecolor=colors[row], linewidth=3))
                 data[i, row] = th.tensor( [0, 0, 1, 0, x, y, r*2 + np.random.randint(5, 10), r*2 + np.random.randint(5, 10)] )
     
@@ -276,7 +277,7 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
                 h = height[row]
                 x = x_center[row+n_circle]
                 y = y_center[row+n_circle]
-    
+
                 ax.add_patch(patches.Rectangle((x - (w/2), y - (h/2)), w, h, facecolor=colors[row+n_circle], linewidth=3))
                 data[i, row+n_circle] = th.tensor( [0, 1, 0, 0, x, y, w + np.random.randint(5, 10), h + np.random.randint(5, 10)] )
     

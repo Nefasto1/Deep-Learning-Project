@@ -62,7 +62,7 @@ def count_parameters(model: th.nn.Module):
 ## ------------------------------------------------ Plot losses ----------------------------------------------- ##
 ## ------------------------------------------------------------------------------------------------------------ ##
 
-def plot_loss(train_loss: list, test_loss: list):
+def plot_loss(train_loss: list, test_loss: list, title: str):
     """
     Function to plot the losses
 
@@ -76,10 +76,10 @@ def plot_loss(train_loss: list, test_loss: list):
     fig = plt.figure(figsize=(10, 10))
     ax = fig.add_subplot()
     plt.plot(range(len(train_loss)), train_loss, color="#4e518b", label="Train", linewidth=3)
-    plt.plot(range(len(test_loss)), test_loss, color="#9a3001", label="Test", linewidth=3)
+    plt.plot(range(len(test_loss)), test_loss, color="#9a3001", label="Validation", linewidth=3)
     plt.xlabel("Epochs")
     plt.ylabel("Loss")
-    plt.title("Train and Test Losses", fontsize=40, fontdict={"family": "fantasy"})
+    plt.title(title, fontsize=40, fontdict={"family": "fantasy"})
     plt.rcParams.update({'font.size': 25})
     plt.xticks(fontsize=15)
     plt.yticks(fontsize=15)
@@ -88,8 +88,14 @@ def plot_loss(train_loss: list, test_loss: list):
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
     # Add text near line ends with final value
-    plt.text(len(train_loss), train_loss[-1], f"{train_loss[-1]:.2f}", fontsize=12, color="#4e518b")
-    plt.text(len(test_loss), test_loss[-1], f"{test_loss[-1]:.2f}", fontsize=12, color="#9a3001")
+    # If y values for the two texts are too close, place them one above the other
+    if abs(train_loss[-1] - test_loss[-1]) > 50:
+        plt.text(len(train_loss), train_loss[-1], f"{train_loss[-1]:.2f}", fontsize=12, color="#4e518b")
+        plt.text(len(test_loss), test_loss[-1], f"{test_loss[-1]:.2f}", fontsize=12, color="#9a3001")
+    else:
+        plt.text(len(train_loss), train_loss[-1], f"{train_loss[-1]:.2f}", fontsize=12, color="#4e518b")
+        plt.text(len(test_loss), test_loss[-1] + 50 - abs(train_loss[-1] - test_loss[-1]), f"{test_loss[-1]:.2f}", fontsize=12, color="#9a3001")
+        
     plt.show()
 
 
