@@ -36,7 +36,10 @@ class Custom_Dataset(Dataset):
     relationships. th.Tensor
         Tensor containing the relationships between the shapes
     """
-    def __init__(self, images: th.Tensor, annotations: th.Tensor, relatioships: th.Tensor):
+    def __init__(self, 
+                 images: th.Tensor, 
+                 annotations: th.Tensor, 
+                 relatioships: th.Tensor):
         self.images = images.permute(0, 3, 1, 2)
         self.annotations = annotations
         self.relationships = relatioships
@@ -56,7 +59,9 @@ class Custom_Dataset(Dataset):
 ## ------------------------------------------- Convolutional Layer Block -------------------------------------- ##
 ## ------------------------------------------------------------------------------------------------------------ ##
 
-def make_conv_block(in_channel, out_channel, kernel_size=3):
+def make_conv_block(in_channel: int, 
+                    out_channel: int, 
+                    kernel_size: int=3):
     """
     Function to create a convolutional block containing a convolutional layer, a BatchNormalization Layer and a MaxPool layer
     Reduces to half the image size
@@ -87,7 +92,10 @@ class Scene_Graph_Model(th.nn.Module):
     """
     Class for the YOLO-like architecture  
     """
-    def __init__(self, num_boxes, num_classes, num_relation):
+    def __init__(self, 
+                 num_boxes: int, 
+                 num_classes: int, 
+                 num_relation: int):
         super(Scene_Graph_Model, self).__init__()
 
         self.num_boxes = num_boxes
