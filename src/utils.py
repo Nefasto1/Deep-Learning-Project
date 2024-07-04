@@ -398,7 +398,7 @@ def test_model(model: th.nn.Module,
                 text = ["None", "Dog", "Fish", "Cat", "Crab"]
             else:
                 text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
-            objects = [text[x] for x in out[:, :5].argmax(1) if x]
+            objects = [text[x] for x in test_image_data[:, :5].argmax(1) if x]
 
         # Process relation data to generate edges
         edges = [[objects[i], objects[j], "is at the right of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 0][0]) > 0.5).int().nonzero().tolist()]] + \
