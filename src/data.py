@@ -54,7 +54,9 @@ def remove_previous_files(image_dir: str):
     os.makedirs('data', exist_ok=True)
 
 
-def is_overlapping(xs: int, ys: int, limit: float):
+def is_overlapping(xs: int, 
+                   ys: int, 
+                   limit: float):
     """
     Check if the new shape overlaps with any previous shapes.
     
@@ -78,7 +80,13 @@ def is_overlapping(xs: int, ys: int, limit: float):
     return False
 
 
-def adjacency_matrix(xs: int, ys: int, radius: np.array, widths: np.array, heights: np.array, relation_limit: float, max_objects: int):
+def adjacency_matrix(xs: int, 
+                     ys: int, 
+                     radius: np.array, 
+                     widths: np.array, 
+                     heights: np.array, 
+                     relation_limit: float, 
+                     max_objects: int):
     """
     Create the relatioship matrix.
 
@@ -167,7 +175,15 @@ def adjacency_matrix(xs: int, ys: int, radius: np.array, widths: np.array, heigh
 
     return adj_matrix*relations
 
-def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects: int, shape_size_min: int, shape_size_max: int, geometric: bool = True, rotate: bool = False, origami: bool = False):
+def create_dataset(num_images: int, 
+                   image_size: int, 
+                   image_dir: str, 
+                   max_objects: int, 
+                   shape_size_min: int, 
+                   shape_size_max: int, 
+                   geometric: bool = True, 
+                   rotate: bool = False, 
+                   origami: bool = False):
     """
     Function to generate some images with geometric shapes. These will be generated avoiding the overlaps and will generate the relationship matrix.
     The relationships are: "Left", "Right", "Above", "Below", "In Front of", "Behind"
@@ -450,7 +466,12 @@ def create_dataset(num_images: int, image_size: int, image_dir: str, max_objects
 ## ------------------------------------------- Dataloader Generation ------------------------------------------ ##
 ## ------------------------------------------------------------------------------------------------------------ ##
 
-def make_DataLoader(train_image_dir: str, test_image_dir: str, image_size: int, data_dir: str, train_annotations: str, test_annotations: str):
+def make_DataLoader(train_image_dir: str, 
+                    test_image_dir: str, 
+                    image_size: int, 
+                    data_dir: str, 
+                    train_annotations: str, 
+                    test_annotations: str):
     """
     Function which convert the images dataset into a Dataloader and save it in storage
 
@@ -470,7 +491,8 @@ def make_DataLoader(train_image_dir: str, test_image_dir: str, image_size: int, 
         Directory where to load the test annotations
     """
 
-    def load_images(img_dir, img_size):
+    def load_images(img_dir: str, 
+                    img_size: str):
         """
         Function to load the images from a directory
 
@@ -581,7 +603,10 @@ def make_DataLoader(train_image_dir: str, test_image_dir: str, image_size: int, 
 ## ------------------------------------------------------------------------------------------------------------ ##
 
 
-def data_visualization(train_image_dir: str = "./train_images", train_data_dir: str = "./data/train_data.tensor", real: bool=False, origami: bool = False):
+def data_visualization(train_image_dir: str = "./train_images", 
+                       train_data_dir: str = "./data/train_data.tensor", 
+                       real: bool=False, 
+                       origami: bool = False):
     """
     Pick 4 random images to display and draw bounding boxes
 
