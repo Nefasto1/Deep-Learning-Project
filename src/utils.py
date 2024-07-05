@@ -362,7 +362,7 @@ def test_model(model: th.nn.Module,
                 color = "green" if pred_class == test_image_data[0, i, :num_classes].argmax() else "purple"
                 ax.scatter(x, y, color=color, s=10) # Centers
                 ax.add_patch(patches.Rectangle((x - (w / 2), y - (h / 2)), w, h, facecolor="None", edgecolor=color, linewidth=3)) # Bounding boxes
-                ax.text(x - 10, y - 7, text[pred_class], color=color, fontsize=12) # Classes
+                ax.text(x - (w/2), y - (h/2) - 5, text[pred_class], color=color, fontsize=25) # Classes
 
         ax.set_title(f"Relation F1 Score: {f1_score:.2f}")
 
@@ -399,7 +399,7 @@ def test_model(model: th.nn.Module,
                 text = ["None", "Dog", "Fish", "Cat", "Crab"]
             else:
                 text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
-            objects = [text[x] for x in test_image_data[:, :5].argmax(1) if x]
+            objects = [text[x] for x in out[:, :5].argmax(1) if x]
 
         # Process relation data to generate edges
         edges = [[objects[i], objects[j], "is at the right of"] for i, j in [tuple(x) for x in (th.sigmoid(out_relation[:, 0][0]) > 0.5).int().nonzero().tolist()]] + \
