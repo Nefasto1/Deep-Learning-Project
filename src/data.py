@@ -46,7 +46,7 @@ def remove_previous_files(image_dir: str):
         print(f"The directory {image_dir} already exists. Do you want to delete it? [y/n]")
         if input() in ['y', 'Y']:
             if platform.system() == 'Linux':
-                subprocess.run('rm -rf ' + image_dir)
+                subprocess.run('rm -rf ' + image_dir, shell=True)
             elif platform.system() == 'Windows':
                 subprocess.run('rmdir /Q /S ' + image_dir, shell=True)        
     # Create directories
@@ -335,7 +335,7 @@ def create_dataset(num_images: int,
         ## INITIALIZATION ##
         ####################
         if not origami:
-            assets = ["dog.png", "fish2.png", "rath.png", "bucket.png"]
+            assets = ["dog.png", "fish2.png", "rath.png", "bucket2.png"]
         else:
             assets = ["dog2.png", "fish.png", "cat.png", "crab.png"]
         asset_images = [mpimg.imread(os.path.join("assets", asset)) for asset in assets]

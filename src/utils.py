@@ -191,6 +191,7 @@ def train_model(model: th.nn.Module,
     test_accuracies       = []
     train_relationship_f1 = []
     test_relationship_f1  = []
+    num_classes = model.num_classes
 
     # Define the f1 score functional
     f1 = BinaryF1Score().to(device)
@@ -218,8 +219,8 @@ def train_model(model: th.nn.Module,
             epoch_loss += loss.item()
 
             # Evaluate the different accuracies
-            predicted_classes = th.softmax(out[:, :, :4], dim=2).argmax(2)
-            true_classes      = label[:, :, :4].argmax(2)
+            predicted_classes = th.softmax(out[:, :, :num_classes], dim=2).argmax(2)
+            true_classes      = label[:, :, :num_classes].argmax(2)
             accuracy         += predicted_classes.eq(true_classes).float().mean().item()        
 
             relation_f1      += f1((th.sigmoid(out_relation) > 0.5 ).int(), relation.to(device))
@@ -256,8 +257,8 @@ def train_model(model: th.nn.Module,
                 epoch_loss += loss.item()
     
                 # Evaluate the different accuracies
-                predicted_classes = th.softmax(out[:, :, :4], dim=2).argmax(2)
-                true_classes = label[:, :, :4].argmax(2)
+                predicted_classes = th.softmax(out[:, :, :num_classes], dim=2).argmax(2)
+                true_classes = label[:, :, :num_classes].argmax(2)
                 accuracy    += predicted_classes.eq(true_classes).float().mean().item()
     
                 relation_f1 += f1((th.sigmoid(out_relation) > 0.5 ).int(), relation.to(device))
@@ -347,7 +348,7 @@ def test_model(model: th.nn.Module,
                 text = ["None", "Dog", "Fish", "Cat", "Crab"]
             else:
                 text = ["None", "Dog", "Fish", "Rathalos", "Bucket"]
-        
+
         # Plot the bounding boxes, centers and classes
         for i, objects in enumerate(prediction):
             pred_class = np.argmax(objects[:num_classes])
@@ -500,7 +501,6 @@ def test_model(model: th.nn.Module,
     ######################
     # Generate new image
     test_image_data, relation = create_dataset(1, 128, "./", num_obj, SHAPE_SIZE_MIN, SHAPE_SIZE_MAX, geometric=geometric, rotate=rotate, origami=origami)
-    
     # Load image
     test_image = plt.imread("0000.jpg")
 
@@ -520,6 +520,7 @@ def test_model(model: th.nn.Module,
     ## PREDICTION EVALUATION ##
     ###########################
     out[:, :, :num_classes] = th.softmax(out[:, :, :num_classes], dim=2)
+
     out = out.cpu().numpy()[0]
 
     ##########################
