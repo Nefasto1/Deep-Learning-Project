@@ -123,7 +123,7 @@ class Scene_Graph_Model(th.nn.Module):
             th.nn.Linear(in_features=128, out_features=num_boxes * (num_classes + 1)),
         )
 
-        self.block_regression = th.nn.Sequential(
+        self.block_boxes = th.nn.Sequential(
             th.nn.Linear(in_features=1024, out_features=512),
             th.nn.ReLU(),
             th.nn.Linear(in_features=512, out_features=256),
@@ -153,13 +153,13 @@ class Scene_Graph_Model(th.nn.Module):
 
         # Information Blocks
         x_classification = self.block_classification(x)
-        x_regression = self.block_regression(x)
-        x_relation = self.block_relation(x_regression)
+        x_boxes          = self.block_boxes(x)
+        x_relation       = self.block_relation(x_boxes)
 
         # Reshape of the outputs
         x_classification = x_classification.view(-1, self.num_boxes, (self.num_classes + 1))
-        x_regression = x_regression.view(-1, self.num_boxes, 4)
-        x_relation = x_relation.view(-1, self.num_relation, self.num_boxes, self.num_boxes)
+        x_boxes          = x_boxes.view(-1, self.num_boxes, 4)
+        x_relation       = x_relation.view(-1, self.num_relation, self.num_boxes, self.num_boxes)
 
         # Concatenation of the informations
-        return th.cat((x_classification, x_regression), dim=2), x_relation
+        return th.cat((x_classification, x_boxes), dim=2), x_relation
