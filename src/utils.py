@@ -351,18 +351,18 @@ def test_model(model: th.nn.Module,
 
         # Plot the bounding boxes, centers and classes
         for i, objects in enumerate(prediction):
-            pred_class = np.argmax(objects[:num_classes])
-            position   = objects[num_classes:]
+            _class = np.argmax(objects[:num_classes])
+            _position   = objects[num_classes:]
             
             if pred_class != 0:
-                x, y = position[0], position[1]    
-                w = position[2]  
-                h = position[3]  
+                x, y = _position[0], _position[1]    
+                w = _position[2]  
+                h = _position[3]  
         
-                color = "green" if pred_class == test_image_data[0, i, :num_classes].argmax() else "purple"
+                color = "green" if _class == test_image_data[0, i, :num_classes].argmax() else "purple"
                 ax.scatter(x, y, color=color, s=10) # Centers
                 ax.add_patch(patches.Rectangle((x - (w / 2), y - (h / 2)), w, h, facecolor="None", edgecolor=color, linewidth=3)) # Bounding boxes
-                ax.text(x - (w/2), y - (h/2) - 5, text[pred_class], color=color, fontsize=25) # Classes
+                ax.text(x - (w/2), y - (h/2) - 5, text[_class], color=color, fontsize=25) # Classes
 
         ax.set_title(f"Relation F1 Score: {f1_score:.2f}")
 
